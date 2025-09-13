@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pro Calc — Minimal, Fast, Beautiful</title>
+  <meta name="description" content="A modern calculator with keyboard support, history, and themes." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg-0:#0b0f1a; /* page bg */
+      --bg-1:#0f1526; /* card bg */
+      --bg-2:#141b33; /* key bg */
+      --glass:#ffffff1a; /* borders */
+      --txt:#e6edf7;
+      --muted:#a8b3cf;
+      --accent-1:#7c4dff; /* primary */
+      --accent-2:#00e5ff; /* secondary */
+      --good:#00d48a;
+      --warn:#ffb020;
+      --danger:#ff5470;
+      --shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    [data-theme="light"]{
+      --bg-0:#f5f7fb; --bg-1:#ffffff; --bg-2:#eef2fb; --glass:#00000012;
+      --txt:#0c1222; --muted:#4a566f; --accent-1:#5b42f3; --accent-2:#0bbbd7;
+      --shadow: 0 10px 30px rgba(18, 22, 36, .12), inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--txt);
+      background: radial-gradient(1000px 600px at 20% 10%, #162042, transparent),
+                  radial-gradient(800px 500px at 80% 0%, #2b1a55, transparent),
+                  radial-gradient(900px 500px at 50% 100%, #00324a, transparent),
+                  var(--bg-0);
+      display:grid; place-items:center; padding:24px;
+    }
+    .shell{
+      width:min(920px, 92vw); display:grid; grid-template-columns: 1fr 380px; gap:18px; align-items:stretch;
+    }
+    @media (max-width: 980px){ .shell{grid-template-columns:1fr;} }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)) , var(--bg-1);
+      border:1px solid var(--glass); border-radius:20px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+    }
+    .header{
+      display:flex; align-items:center; justify-content:space-between; padding:14px 16px; gap:10px; border-bottom:1px solid var(--glass);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), transparent);
+    }
+    .brand{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px}
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, #fff, #ffd734 40%, #ff6b6b 40%);
+      box-shadow: 0 0 12px #ffd73466;
+    }
+    .toggle, .pill{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid var(--glass); cursor:pointer; user-select:none;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+    }
+    .toggle input{appearance:none; width:32px; height:18px; border-radius:999px; background:var(--bg-2); position:relative; outline:none; border:1px solid var(--glass)}
+    .toggle input::after{content:""; position:absolute; top:50%; left:2px; transform:translateY(-50%); width:14px; height:14px; border-radius:50%; background:var(--txt); transition:.25s}
+    .toggle input:checked{background: linear-gradient(90deg, var(--accent-1), var(--accent-2));}
+    .toggle input:checked::after{left:16px;}
+
+    /* Display */
+    .display{
+      padding:18px; display:grid; gap:10px; min-height:160px;
+      background: radial-gradient(120% 160% at 80% 0%, #ffffff10, transparent), var(--bg-1);
+    }
+    .expr{ min-height:28px; color:var(--muted); text-align:right; font-weight:600; letter-spacing:.3px; word-break:break-all }
+    .result{ font-size:44px; font-weight:800; text-align:right; line-height:1.2; word-break:break-all }
+
+    /* Keypad */
+    .pad{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; padding:16px; }
+    .key{
+      padding:16px; border-radius:14px; text-align:center; font-weight:700; letter-spacing:.4px; cursor:pointer; user-select:none;
+      border:1px solid var(--glass); background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)), var(--bg-2);
+      transition:.15s transform, .2s filter;
+      color:var(--txt);
+    }
+    .key:hover{ filter:brightness(1.06) }
+    .key:active{ transform:translateY(1px) scale(.995) }
+    .op{ background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)),
+          linear-gradient(90deg, #2b1a55 0%, #0b3a63 100%); border-color:transparent; color:white; }
+    [data-theme="light"] .op{ background: linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,0,0,0)), linear-gradient(90deg,#f0edff,#e5faff); color:var(--accent-1); font-weight:800; }
+    [data-theme="light"] .key{ color:var(--txt); font-weight:700; }
+    .accent{ background: linear-gradient(90deg, var(--accent-1), var(--accent-2)); color:white; border:0 }
+    .span-2{ grid-column: span 2 }
+
+    /* History Panel */
+    .history{
+      display:flex; flex-direction:column; height:100%;
+    }
+    .list{ padding:10px 12px; overflow:auto; height:calc(100% - 52px); }
+    .h-item{ padding:12px; border:1px solid var(--glass); border-radius:12px; margin:8px 0; background:linear-gradient(180deg, rgba(255,255,255,.04), transparent); display:grid; gap:6px; cursor:pointer }
+    .h-expr{ color:var(--muted); font-size:13px; }
+    .h-res{ font-weight:700 }
+    .empty{ color:var(--muted); text-align:center; padding:32px 12px }
+
+    /* Footer */
+    .footer{ display:flex; justify-content:space-between; align-items:center; padding:10px 14px; font-size:12px; color:var(--muted) }
+    .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border:1px solid var(--glass); border-bottom-width:2px; padding:2px 6px; border-radius:6px; color:var(--txt)}
+    [data-theme="light"] .kbd{ color:var(--accent-1); border-color:var(--accent-1); }
+    .link{color:var(--accent-2); text-decoration:none}
+  </style>
+</head>
+<body>
+  <!-- rest of code unchanged -->
+</body>
+</html>
+
+  <main class="shell" id="app" data-theme="dark">
+    <!-- Calculator -->
+    <section class="card" aria-label="Calculator">
+      <div class="header">
+        <div class="brand"><span class="dot" aria-hidden="true"></span> Pro&nbsp;Calc</div>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span class="pill" title="Clear history" id="clear-history" aria-label="Clear history">🧹 Clear</span>
+          <label class="toggle" title="Toggle theme" aria-label="Toggle theme">
+            <span style="font-size:12px">☀️</span>
+            <input type="checkbox" id="themeToggle" />
+            <span style="font-size:12px">🌙</span>
+          </label>
+        </div>
+      </div>
+      <div class="display" role="region" aria-live="polite">
+        <div id="expr" class="expr"></div>
+        <div id="result" class="result">0</div>
+      </div>
+      <div class="pad" role="grid" aria-label="Keypad">
+        <div class="key" data-key="AC" title="All Clear (Esc)">AC</div>
+        <div class="key" data-key="±" title="Toggle Sign (\u00B1)">±</div>
+        <div class="key" data-key="%" title="Percent">%</div>
+        <div class="key op" data-key="/" title="Divide (/)">÷</div>
+
+        <div class="key" data-key="7">7</div>
+        <div class="key" data-key="8">8</div>
+        <div class="key" data-key="9">9</div>
+        <div class="key op" data-key="*" title="Multiply (*)">×</div>
+
+        <div class="key" data-key="4">4</div>
+        <div class="key" data-key="5">5</div>
+        <div class="key" data-key="6">6</div>
+        <div class="key op" data-key="-" title="Minus (-)">−</div>
+
+        <div class="key" data-key="1">1</div>
+        <div class="key" data-key="2">2</div>
+        <div class="key" data-key="3">3</div>
+        <div class="key op" data-key="+" title="Plus (+)">+</div>
+
+        <div class="key span-2" data-key="0">0</div>
+        <div class="key" data-key=".">.</div>
+        <div class="key accent" data-key="=" title="Equals (Enter)">=</div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <aside class="card history" aria-label="History">
+      <div class="header"><div class="brand">⏱️ History</div>
+        <div class="pill" id="copy-result" title="Copy result to clipboard">📋 Copy</div>
+      </div>
+      <div class="list" id="historyList"><div class="empty">No calculations yet. Results will appear here.</div></div>
+      <div class="footer">
+        <div>Keyboard: <span class="kbd">0-9</span> <span class="kbd">+ − × ÷</span> <span class="kbd">( )</span> <span class="kbd">Enter</span> <span class="kbd">Backspace</span></div>
+        <a class="link" href="#" id="share">Share</a>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+  (function(){
+    const app = document.getElementById('app');
+    const exprEl = document.getElementById('expr');
+    const resultEl = document.getElementById('result');
+    const historyList = document.getElementById('historyList');
+    const themeToggle = document.getElementById('themeToggle');
+    const shareBtn = document.getElementById('share');
+
+    // State
+    let expression = '';
+    let lastAnswer = 0;
+    let history = JSON.parse(localStorage.getItem('procalc.history')||'[]');
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    if(prefersLight) themeToggle.checked = true, app.setAttribute('data-theme','light');
+
+    // Helpers
+    const clampLen = (s, n=200) => s.length > n ? s.slice(0,n)+"…" : s;
+    const setExpr = (s) => { expression = s; exprEl.textContent = clampLen(s, 1_200); };
+    const setResult = (v) => { resultEl.textContent = v; };
+
+    function renderHistory(){
+      if(!history.length){ historyList.innerHTML = '<div class="empty">No calculations yet. Results will appear here.</div>'; return; }
+      historyList.innerHTML = history.map((h,i)=>
+        `<div class="h-item" data-h-idx="${i}" title="Click to reuse result or expression">
+          <div class="h-expr">${escapeHtml(h.expr)}</div>
+          <div class="h-res">${h.res}</div>
+        </div>`
+      ).join('');
+    }
+
+    function escapeHtml(str){
+      return str.replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    }
+
+    function pushHistory(expr, res){
+      history.unshift({expr, res});
+      history = history.slice(0, 50);
+      localStorage.setItem('procalc.history', JSON.stringify(history));
+      renderHistory();
+    }
+
+    // Parsing & Eval (Shunting-yard -> RPN)
+    const precedence = {'+':1,'-':1,'*':2,'/':2,'%':2,'^':3};
+    const rightAssoc = {'^':true};
+
+    function tokenize(s){
+      const tokens=[]; let i=0;
+      while(i < s.length){
+        const c = s[i];
+        if(/\s/.test(c)){ i++; continue; }
+        if(/[0-9\.]/.test(c)){
+          let num = c; i++;
+          while(i<s.length && /[0-9_\.]/.test(s[i])) num+=s[i++];
+          num = num.replace(/_/g,'');
+          if(num.split('.').length>2) throw Error('Invalid number');
+          tokens.push({type:'num', v:parseFloat(num)}); continue;
+        }
+        if(/[+\-*/%^()]/.test(c)){
+          tokens.push({type:'op', v:c}); i++; continue;
+        }
+        // constants & ans
+        if(/[a-zA-Z]/.test(c)){
+          let id=c; i++;
+          while(i<s.length && /[a-zA-Z]/.test(s[i])) id+=s[i++];
+          if(id.toLowerCase()==='ans') tokens.push({type:'num', v:lastAnswer});
+          else if(id.toLowerCase()==='pi' || id==='π') tokens.push({type:'num', v:Math.PI});
+          else if(id.toLowerCase()==='e') tokens.push({type:'num', v:Math.E});
+          else throw Error('Unknown token: '+id);
+          continue;
+        }
+        throw Error('Unexpected: '+c);
+      }
+      // handle unary minus
+      const out=[];
+      for(let j=0;j<tokens.length;j++){
+        const t=tokens[j];
+        if(t.type==='op' && t.v==='-' && (j===0 || (tokens[j-1].type==='op' && tokens[j-1].v!==')'))){
+          out.push({type:'num', v:0}); out.push({type:'op', v:'-'});
+        } else out.push(t);
+      }
+      return out;
+    }
+
+    function toRPN(tokens){
+      const out=[], op=[];
+      for(const t of tokens){
+        if(t.type==='num') out.push(t);
+        else if(t.type==='op'){
+          if(t.v==='(') op.push(t);
+          else if(t.v===')'){
+            while(op.length && op[op.length-1].v!=='(') out.push(op.pop());
+            if(!op.length) throw Error('Mismatched parentheses');
+            op.pop();
+          } else {
+            while(op.length){
+              const p=op[op.length-1];
+              if(p.v==='(') break;
+              const shouldPop = (precedence[p.v] > precedence[t.v]) ||
+                                (precedence[p.v] === precedence[t.v] && !rightAssoc[t.v]);
+              if(shouldPop) out.push(op.pop()); else break;
+            }
+            op.push(t);
+          }
+        }
+      }
+      while(op.length){ const p=op.pop(); if(p.v==='('||p.v===')') throw Error('Mismatched parentheses'); out.push(p); }
+      return out;
+    }
+
+    function evalRPN(rpn){
+      const st=[];
+      for(const t of rpn){
+        if(t.type==='num') st.push(t.v);
+        else {
+          const b=st.pop(), a=st.pop();
+          if(a===undefined || b===undefined) throw Error('Malformed');
+          let r;
+          switch(t.v){
+            case '+': r=a+b; break;
+            case '-': r=a-b; break;
+            case '*': r=a*b; break;
+            case '/': if(b===0) throw Error('Division by zero'); r=a/b; break;
+            case '%': r=a%b; break;
+            case '^': r=Math.pow(a,b); break;
+            default: throw Error('Unknown op');
+          }
+          st.push(r);
+        }
+      }
+      if(st.length!==1) throw Error('Malformed');
+      return st[0];
+    }
+
+    function formatNumber(n){
+      if(!Number.isFinite(n)) return 'Error';
+      const abs = Math.abs(n);
+      if(abs!==0 && (abs<1e-6 || abs>=1e12)) return n.toExponential(8).replace(/\.0+e/,'e');
+      return (Math.round(n*1e10)/1e10).toLocaleString(undefined,{maximumFractionDigits:10});
+    }
+
+    function evaluate(){
+      const clean = expression.replace(/×/g,'*').replace(/÷/g,'/');
+      try{
+        const tokens = tokenize(clean);
+        const rpn = toRPN(tokens);
+        const val = evalRPN(rpn);
+        const out = formatNumber(val);
+        setResult(out);
+        lastAnswer = val;
+        pushHistory(expression + ' =', out);
+      }catch(e){
+        setResult('Error');
+        console.warn(e);
+      }
+    }
+
+    function handleInput(k){
+      if(k==='='){ evaluate(); return; }
+      if(k==='AC'){ setExpr(''); setResult('0'); return; }
+      if(k==='±'){
+        // Toggle sign of the last number in expression
+        const m = expression.match(/(.*?)([\d\.]+)\s*$/);
+        if(m){ const pre=m[1], num=m[2]; setExpr(pre + (num.startsWith('-')? num.slice(1) : '-' + num)); }
+        else if(resultEl.textContent!=="0"){ setExpr(resultEl.textContent.startsWith('-')? resultEl.textContent.slice(1) : '-' + resultEl.textContent); }
+        return;
+      }
+      if(k==='.' ){
+        // avoid duplicate dot in current number
+        const parts = expression.split(/([+\-*/%^()])/);
+        const last = parts[parts.length-1] || '';
+        if(last.includes('.')) return;
+      }
+      setExpr(expression + k);
+    }
+
+    // Clicks
+    document.querySelectorAll('.key').forEach(btn=>{
+      btn.addEventListener('click', ()=> handleInput(btn.dataset.key));
+    });
+
+    // Keyboard
+    const allowed = '0123456789+-*/%^().';
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ evaluate(); e.preventDefault(); return; }
+      if(e.key==='Escape'){ setExpr(''); setResult('0'); return; }
+      if(e.key==='Backspace'){ setExpr(expression.slice(0,-1)); return; }
+      if(allowed.includes(e.key)) handleInput(e.key);
+    });
+
+    // History interactions
+    renderHistory();
+    historyList.addEventListener('click', (e)=>{
+      const item = e.target.closest('.h-item'); if(!item) return;
+      const i = +item.dataset.hIdx; if(Number.isNaN(i)) return;
+      const h = history[i];
+      // On first click copy result to display; if Alt pressed, copy expression
+      if(e.altKey){ setExpr(h.expr.replace(/\s*=\s*$/,'')); setResult('0'); }
+      else { setExpr(''); setResult(h.res); lastAnswer = parseFloat(h.res.replace(/,/g,'')); }
+    });
+
+    // Theme
+    themeToggle.addEventListener('change', ()=>{
+      app.setAttribute('data-theme', themeToggle.checked? 'light':'dark');
+      localStorage.setItem('procalc.theme', app.getAttribute('data-theme'));
+    });
+    const savedTheme = localStorage.getItem('procalc.theme');
+    if(savedTheme){ app.setAttribute('data-theme', savedTheme); themeToggle.checked = savedTheme==='light'; }
+
+    // Clear history
+    document.getElementById('clear-history').addEventListener('click', ()=>{
+      history = []; localStorage.removeItem('procalc.history'); renderHistory();
+    });
+
+    // Copy
+    document.getElementById('copy-result').addEventListener('click', async ()=>{
+      const text = resultEl.textContent.trim();
+      try{ await navigator.clipboard.writeText(text); toast('Copied: '+text); }catch{ toast('Copy failed'); }
+    });
+
+    // Share (URL encodes expression)
+    shareBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const url = new URL(location.href);
+      url.searchParams.set('expr', expression);
+      navigator.clipboard.writeText(url.toString());
+      toast('Sharable link copied');
+    });
+
+    // Load expr from URL if present
+    const urlExpr = new URL(location.href).searchParams.get('expr');
+    if(urlExpr){ setExpr(urlExpr); evaluate(); }
+
+    // Tiny toast
+    function toast(msg){
+      const t=document.createElement('div');
+      t.textContent=msg; t.style.cssText='position:fixed;left:50%;bottom:22px;transform:translateX(-50%);padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:white;font-weight:700;box-shadow:var(--shadow);z-index:9999';
+      document.body.appendChild(t); setTimeout(()=>{ t.style.transition='.25s'; t.style.opacity='0'; }, 1400); setTimeout(()=>t.remove(), 1800);
+    }
+
+  })();
+  </script>
+</body>
+</html>
